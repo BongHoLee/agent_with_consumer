@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS MYDATA_TERMINATE_USER (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
-    UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+    UNIQUE KEY uq_mydata_pay_account_status (pay_account_id, terminate_status)
 );
 
 CREATE TABLE IF NOT EXISTS PAY_TERMINATE_USER (
@@ -20,5 +20,5 @@ CREATE TABLE IF NOT EXISTS PAY_TERMINATE_USER (
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
-    UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+    UNIQUE KEY uq_pay_pay_account_status (pay_account_id, terminate_status)
 );

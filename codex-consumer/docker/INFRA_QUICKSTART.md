@@ -19,7 +19,8 @@ PoC용 인프라(단일 Kafka + MySQL)를 빠르게 구동하고, 간단한 메�
    ```bash
    docker compose ps
    ```
-   `codex-mysql`과 `codex-kafka`가 `Up` 상태이면 정상입니다.
+   `codex-mysql`, `codex-kafka`, `codex-kafdrop`이 모두 `Up` 상태이면 정상입니다.
+> 호스트에서 접근할 때는 MySQL `13306`, Kafka `19092`, Kafdrop `19093` 포트를 사용합니다.
 
 ## 2. Kafka 토픽 생성
 Bitnami Kafka 이미지는 `/opt/bitnami/kafka/bin`에 CLI가 위치합니다.
@@ -29,7 +30,7 @@ Bitnami Kafka 이미지는 `/opt/bitnami/kafka/bin`에 CLI가 위치합니다.
    docker compose exec kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
      --create \
      --topic mydata.consent.v1 \
-     --bootstrap-server localhost:9092 \
+     --bootstrap-server localhost:19092 \
      --partitions 1 \
      --replication-factor 1 \
      --if-not-exists
@@ -37,7 +38,7 @@ Bitnami Kafka 이미지는 `/opt/bitnami/kafka/bin`에 CLI가 위치합니다.
    docker compose exec kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
      --create \
      --topic pay-account.payaccount-deleted.v2 \
-     --bootstrap-server localhost:9092 \
+     --bootstrap-server localhost:19092 \
      --partitions 1 \
      --replication-factor 1 \
      --if-not-exists
@@ -46,17 +47,26 @@ Bitnami Kafka 이미지는 `/opt/bitnami/kafka/bin`에 CLI가 위치합니다.
    ```bash
    docker compose exec kafka /opt/bitnami/kafka/bin/kafka-topics.sh \
      --list \
-     --bootstrap-server localhost:9092
+     --bootstrap-server localhost:19092
    ```
 
-## 3. Kafka 메시지 테스트
+## 3. Kafdrop UI 확인
+브라우저에서 다음 주소를 열어 토픽과 파티션 상태를 확인할 수 있습니다.
+
+```
+http://localhost:19093
+```
+
+첫 화면에서 브로커 연결 상태가 `UP`으로 표시되는지 확인하고, `Topics` 메뉴에서 생성한 토픽들을 확인합니다.
+
+## 4. Kafka 메시지 테스트
 서로 다른 터미널 두 개를 사용하면 편리합니다.
 
 ### 3-1. Consumer 실행
 ```bash
 docker compose exec kafka /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
   --topic mydata.consent.v1 \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server localhost:19092 \
   --from-beginning
 ```
 
@@ -66,12 +76,12 @@ docker compose exec kafka /opt/bitnami/kafka/bin/kafka-console-consumer.sh \
 echo '{"data":{"delete_event_type":"PFM_SERVICE_CLOSED_BY_USER","pay_account_id":46123695,"is_remove":true,"is_force":false},"type":"WITHDRAW"}' \
   | docker compose exec -T kafka /opt/bitnami/kafka/bin/kafka-console-producer.sh \
       --topic mydata.consent.v1 \
-      --bootstrap-server localhost:9092
+      --bootstrap-server localhost:19092
 ```
 
 Consumer 터미널에 JSON 메시지가 출력되면 송수신이 정상적으로 동작합니다.
 
-## 4. MySQL 초기화 확인
+## 5. MySQL 초기화 확인
 초기 테이블이 생성되었는지 확인합니다.
 ```bash
 docker compose exec mysql mysql \
@@ -82,7 +92,7 @@ docker compose exec mysql mysql \
 ```
 `MYDATA_TERMINATE_USER`, `PAY_TERMINATE_USER` 테이블이 보이면 초기화가 완료된 것입니다.
 
-## 5. 정리
+## 6. 정리
 작업이 끝나면 컨테이너를 종료합니다.
 ```bash
 docker compose down

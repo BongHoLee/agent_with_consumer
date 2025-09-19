@@ -26,6 +26,10 @@
 
 ## 구현 계획
 
+### 테스트 원칙
+- 각 단계 산출물에는 대응하는 테스트 코드를 반드시 포함한다.
+- 단계별 체크리스트에 테스트 작업을 명시하고 완료 시 체크한다.
+
 ### Phase 1: 데이터베이스 스키마 및 엔티티
 1. **테이블 스키마 정의 (DDL)**
    ```sql
@@ -38,7 +42,7 @@
        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
        updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
        PRIMARY KEY (id),
-       UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+       UNIQUE KEY uq_mydata_pay_account_status (pay_account_id, terminate_status)
    );
 
    -- PAY_TERMINATE_USER 테이블
@@ -50,7 +54,7 @@
        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
        updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
        PRIMARY KEY (id),
-       UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+       UNIQUE KEY uq_pay_pay_account_status (pay_account_id, terminate_status)
    );
    ```
 
@@ -148,14 +152,14 @@
    spring:
      kafka:
        consumer:
-         bootstrap-servers: localhost:9092
+         bootstrap-servers: localhost:19092
          group-id: cc-consumer-group
          auto-offset-reset: earliest
          enable-auto-commit: false
           key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
           value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
         producer:
-          bootstrap-servers: localhost:9092
+          bootstrap-servers: localhost:19092
           key-serializer: org.apache.kafka.common.serialization.StringSerializer
           value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
         listener:
@@ -166,7 +170,7 @@
    ```yaml
    spring:
      datasource:
-       url: jdbc:mysql://localhost:3306/consumer_db
+       url: jdbc:mysql://localhost:13306/consumer_db
        username: root
        password: password
      jpa:
@@ -262,7 +266,7 @@ com.consumer.cconsumer/
 ### 📋 0.5단계: Docker 인프라 환경 구성 (우선순위: 최고)
 **PoC 환경을 위한 가장 간단한 형태의 Docker Compose 구성**
 
-- [ ] `codex-consumer/docker/compose.yaml` 작성 (MySQL + 단일 Kafka)
+- [x] `codex-consumer/docker/compose.yaml` 작성 (MySQL + 단일 Kafka)
   ```yaml
   services:
     mysql:
@@ -270,27 +274,37 @@ com.consumer.cconsumer/
       env_file:
         - .env
       ports:
-        - "3306:3306"
+        - "13306:3306"
       volumes:
         - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
     kafka:
       image: bitnami/kafka:3.7.0
       ports:
-        - "9092:9092"
+        - "19092:19092"
       environment:
         - KAFKA_CFG_NODE_ID=1
         - KAFKA_CFG_PROCESS_ROLES=controller,broker
         - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
         - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-        - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-        - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-        - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+        - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+        - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+        - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
         - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
         - ALLOW_PLAINTEXT_LISTENER=yes
+
+    kafdrop:
+      image: obsidiandynamics/kafdrop:latest
+      depends_on:
+        - kafka
+      ports:
+        - "19093:9000"
+      environment:
+        KAFKA_BROKERCONNECT: kafka:9092
+        JVM_OPTS: "-Xms32M -Xmx64M"
   ```
 
-- [ ] 환경 변수 파일 작성 (`codex-consumer/docker/.env`)
+- [x] 환경 변수 파일 작성 (`codex-consumer/docker/.env`)
   ```env
   MYSQL_DATABASE=consumer_db
   MYSQL_USER=consumer_user
@@ -298,7 +312,7 @@ com.consumer.cconsumer/
   MYSQL_ROOT_PASSWORD=consumer_root_password
   ```
 
-- [ ] MySQL 초기 스키마 파일 작성 (`codex-consumer/docker/mysql/init.sql`)
+- [x] MySQL 초기 스키마 파일 작성 (`codex-consumer/docker/mysql/init.sql`)
   ```sql
   CREATE DATABASE IF NOT EXISTS consumer_db;
   USE consumer_db;
@@ -311,7 +325,7 @@ com.consumer.cconsumer/
       created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
       updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
       PRIMARY KEY (id),
-      UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+      UNIQUE KEY uq_mydata_pay_account_status (pay_account_id, terminate_status)
   );
   
   CREATE TABLE PAY_TERMINATE_USER (
@@ -322,79 +336,89 @@ com.consumer.cconsumer/
       created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
       updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
       PRIMARY KEY (id),
-      UNIQUE KEY uq_pay_account_terminate_status (pay_account_id, terminate_status)
+      UNIQUE KEY uq_pay_pay_account_status (pay_account_id, terminate_status)
   );
   ```
 
-- [ ] Kafka 토픽 생성 스크립트 (`codex-consumer/docker/kafka/create-topics.sh`)
+- [x] Kafka 토픽 생성 스크립트 (`codex-consumer/docker/kafka/create-topics.sh`)
   ```bash
   #!/usr/bin/env bash
   set -euo pipefail
-  kafka-topics --create --topic mydata.consent.v1 --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --if-not-exists
-  kafka-topics --create --topic pay-account.payaccount-deleted.v2 --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --if-not-exists
-  kafka-topics --list --bootstrap-server localhost:9092
+  kafka-topics --create --topic mydata.consent.v1 --bootstrap-server localhost:19092 --partitions 1 --replication-factor 1 --if-not-exists
+  kafka-topics --create --topic pay-account.payaccount-deleted.v2 --bootstrap-server localhost:19092 --partitions 1 --replication-factor 1 --if-not-exists
+  kafka-topics --list --bootstrap-server localhost:19092
   ```
 
-- [ ] Docker 환경 테스트
+- [x] Docker 환경 테스트
   - `docker compose up -d` 실행
   - MySQL 연결 / 초기 테이블 확인
   - Kafka 브로커 상태 확인 (`kafka-topics --list`)
+  - Kafdrop UI 접속으로 토픽 및 메시지 확인 (`http://localhost:19093`)
 
-- [ ] 테스트 메시지 발행 스크립트 작성 (개발/테스트용)
+- [x] 테스트 메시지 발행 스크립트 작성 (개발/테스트용)
   ```bash
   # JSON 메시지 발행 (mydata.consent.v1)
   echo '{"data":{"delete_event_type":"PFM_SERVICE_CLOSED_BY_USER","pay_account_id":46123695,"is_remove":true,"is_force":false},"type":"WITHDRAW"}' \
-    docker compose exec -T kafka /opt/bitnami/kafka/bin/kafka-console-producer.sh --topic mydata.consent.v1 --bootstrap-server localhost:9092
+    docker compose exec -T kafka /opt/bitnami/kafka/bin/kafka-console-producer.sh --topic mydata.consent.v1 --bootstrap-server localhost:19092
   
   # Avro 메시지는 애플리케이션에서 작성한 직렬화 유틸을 활용해 전송 (Schema Registry 불필요)
   ```
 
 ### 📋 1단계: Phase 1 - 도메인 모델 (우선순위: 높음)
-- [ ] `TerminateStatus` Enum 생성
-- [ ] `BaseEntity` 추상 클래스 생성
-- [ ] `MydataTerminateUser` 엔티티 생성
-- [ ] `PayTerminateUser` 엔티티 생성
-- [ ] Repository 인터페이스 생성
-- [ ] DDL 스크립트 작성 (`schema.sql`)
+- [x] `TerminateStatus` Enum 생성
+- [x] `BaseEntity` 추상 클래스 생성
+- [x] `MydataTerminateUser` 엔티티 생성
+- [x] `PayTerminateUser` 엔티티 생성
+- [x] Repository 인터페이스 생성
+- [x] DDL 스크립트 작성 (`schema.sql`)
+- [x] 테스트: JPA 매핑 및 멱등 시나리오 검증 (`MydataTerminateUserRepositoryTest`, `PayTerminateUserRepositoryTest`)
+- [x] 단위 테스트: 엔티티 기본 상태 및 상태 전환 확인 (`MydataTerminateUserTest`, `PayTerminateUserTest`)
 
 ### 📋 2단계: Phase 2 - 메시지 모델 (우선순위: 높음)
 - [ ] `ConsentMessage`, `ConsentData` 데이터 클래스 생성
 - [ ] Avro 스키마 파일 작성 (`PayAccountDeletedEnvelop.avsc`)
 - [ ] Avro Gradle Plugin 설정
 - [ ] 메시지 모델 단위 테스트
+- [ ] 테스트: JSON/Avro 메시지 역직렬화 검증
 
 ### 📋 3단계: Phase 3 - Kafka Consumer (우선순위: 높음)
 - [ ] `MydataConsentConsumer` 구현
 - [ ] `PayAccountDeletedConsumer` 구현
 - [ ] Kafka 설정 클래스 (`KafkaConfig`) 구현
 - [ ] Consumer 에러 처리 로직
+- [ ] 테스트: Kafka Listener 단위/통합 테스트
 
 ### 📋 4단계: Phase 4 - 비즈니스 로직 (우선순위: 높음)
 - [ ] `MydataTerminateService` 구현
 - [ ] `PayTerminateService` 구현
 - [ ] 멱등성 보장 로직 구현
 - [ ] 트랜잭션 처리
+- [ ] 테스트: 서비스 멱등성 및 예외 처리 검증
 
 ### 📋 5단계: Phase 5 - 설정 완성 (우선순위: 중간)
 - [ ] Kafka Consumer 상세 설정
 - [ ] MySQL 연결 설정 최적화
 - [ ] Avro Serializer 설정
+- [ ] 테스트: 구성 프로퍼티 로딩 및 Bean 초기화 검증
 
 ### 📋 6단계: Phase 6 - 설정 통합 및 최적화 (우선순위: 중간)
 - [ ] Docker 환경과 애플리케이션 설정 연동 확인
 - [ ] 프로파일별 설정 분리 (dev, test, prod)
 - [ ] Connection Pool, Kafka Consumer 성능 튜닝
+- [ ] 테스트: 통합 환경 스모크 테스트
 
 ### 📋 7단계: Phase 7 - 테스트 (우선순위: 중간)
 - [ ] Repository 테스트 (TestContainers)
 - [ ] Service 로직 테스트
 - [ ] 멱등성 검증 테스트
 - [ ] Kafka Consumer 통합 테스트
+- [ ] 테스트: 테스트 자동화 파이프라인 구성
 
 ### 📋 8단계: Phase 8 - 운영 준비 (우선순위: 낮음)
 - [ ] 로깅 설정 최적화
 - [ ] 헬스체크 엔드포인트
 - [ ] 메트릭 수집 설정
+- [ ] 테스트: 헬스체크 및 관측성 검증
 
 ## 다음 작업 우선순위
 
@@ -402,6 +426,7 @@ com.consumer.cconsumer/
 **0.5단계: Docker 인프라 환경 구성**
 - PoC 성격에 걸맞는 가장 간단한 형태
 - MySQL과 단일 Kafka 컨테이너 구성 (데이터 영속성 없음)
+- Kafka 상태 확인을 위한 Kafdrop UI 포함
 - 초기 스키마 및 토픽 생성
 - 테스트 메시지 발행 환경 준비
 
