@@ -2,164 +2,142 @@ package com.consumer.cconsumer.domain.repository
 
 import com.consumer.cconsumer.domain.entity.PayTerminateUser
 import com.consumer.cconsumer.domain.entity.TerminateStatus
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.longs.shouldBeGreaterThan
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.dao.DataIntegrityViolationException
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 @DataJpaTest
-class PayTerminateUserRepositoryTest {
+class PayTerminateUserRepositoryTest : DescribeSpec() {
 
     @Autowired
     private lateinit var repository: PayTerminateUserRepository
 
-    @Test
-    fun `should save and retrieve PayTerminateUser`() {
-        val payAccountId = 67890L
-        val reason = "ACCOUNT_DELETED"
-        
-        val entity = PayTerminateUser(
-            payAccountId = payAccountId,
-            reason = reason
-        )
-        
-        // Before save, id should be 0 (default)
-        assertEquals(0L, entity.id)
-        
-        val saved = repository.save(entity)
-        
-        // After save, id should be auto-generated (not 0)
-        assertNotNull(saved.id)
-        assert(saved.id > 0) { "ID should be auto-generated and greater than 0, but was ${saved.id}" }
-        assertEquals(payAccountId, saved.payAccountId)
-        assertEquals(reason, saved.reason)
-        assertEquals(TerminateStatus.PENDING, saved.terminateStatus)
-        assertNotNull(saved.createdAt)
-        assertNotNull(saved.updatedAt)
-    }
+    override fun extensions() = listOf(SpringExtension)
 
-    @Test
-    fun `should find by pay account id and terminate status`() {
-        val payAccountId = 67890L
-        val reason = "ACCOUNT_DELETED"
-        
-        val entity = PayTerminateUser(
-            payAccountId = payAccountId,
-            reason = reason
-        )
-        
-        repository.save(entity)
-        
-        val found = repository.findByPayAccountIdAndTerminateStatus(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.PENDING
-        )
-        
-        assertNotNull(found)
-        assertEquals(payAccountId, found.payAccountId)
-        assertEquals(TerminateStatus.PENDING, found.terminateStatus)
-    }
+    init {
+        describe("PayTerminateUserRepository는") {
 
-    @Test
-    fun `should return null when no matching record found`() {
-        val found = repository.findByPayAccountIdAndTerminateStatus(
-            payAccountId = 99999L,
-            terminateStatus = TerminateStatus.PENDING
-        )
-        
-        assertNull(found)
-    }
+            val payAccountId = 67890L
+            val reason = "ACCOUNT_DELETED"
 
-    @Test
-    fun `should enforce unique constraint on pay_account_id and terminate_status`() {
-        val payAccountId = 67890L
-        val reason = "ACCOUNT_DELETED"
-        
-        // First entity
-        val entity1 = PayTerminateUser(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.PENDING,
-            reason = reason
-        )
-        repository.save(entity1)
-        
-        // Second entity with same payAccountId and terminateStatus
-        val entity2 = PayTerminateUser(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.PENDING,
-            reason = reason
-        )
-        
-        // Should throw exception due to unique constraint violation
-        assertThrows<DataIntegrityViolationException> {
-            repository.save(entity2)
-            repository.flush() // Force execution
+            it("PayTerminateUser를 저장하고 조회할 수 있다") {
+                val entity = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    reason = reason
+                )
+                entity.id shouldBe 0L
+
+                val saved = repository.save(entity)
+
+                saved.id shouldNotBe null
+                saved.id shouldBeGreaterThan 0L
+                saved.payAccountId shouldBe payAccountId
+                saved.reason shouldBe reason
+                saved.terminateStatus shouldBe TerminateStatus.PENDING
+                saved.createdAt shouldNotBe null
+                saved.updatedAt shouldNotBe null
+            }
+
+            it("pay_account_id와 terminate_status로 조회할 수 있다") {
+                val entity = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    reason = reason
+                )
+                repository.save(entity)
+
+                val found = repository.findByPayAccountIdAndTerminateStatus(
+                    payAccountId = payAccountId,
+                    terminateStatus = TerminateStatus.PENDING
+                )
+
+                found shouldNotBe null
+                found?.payAccountId shouldBe payAccountId
+                found?.terminateStatus shouldBe TerminateStatus.PENDING
+            }
+
+            it("일치하는 레코드가 없으면 null을 반환한다") {
+                val found = repository.findByPayAccountIdAndTerminateStatus(
+                    payAccountId = 99999L,
+                    terminateStatus = TerminateStatus.PENDING
+                )
+
+                found shouldBe null
+            }
+
+            it("pay_account_id와 terminate_status에 대한 유니크 제약조건을 강제한다") {
+                val entity1 = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    terminateStatus = TerminateStatus.PENDING,
+                    reason = reason
+                )
+                repository.save(entity1)
+
+                val entity2 = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    terminateStatus = TerminateStatus.PENDING,
+                    reason = reason
+                )
+
+                shouldThrow<DataIntegrityViolationException> {
+                    repository.saveAndFlush(entity2)
+                }
+            }
+
+            it("terminate_status가 다르면 동일한 pay_account_id를 허용한다") {
+                val pendingEntity = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    terminateStatus = TerminateStatus.PENDING,
+                    reason = reason
+                )
+                repository.save(pendingEntity)
+
+                val completedEntity = PayTerminateUser(
+                    payAccountId = payAccountId,
+                    terminateStatus = TerminateStatus.COMPLETED,
+                    reason = reason
+                )
+                val saved = repository.save(completedEntity)
+
+                saved.id shouldNotBe null
+                saved.payAccountId shouldBe payAccountId
+                saved.terminateStatus shouldBe TerminateStatus.COMPLETED
+
+                val pendingRecord = repository.findByPayAccountIdAndTerminateStatus(
+                    payAccountId, TerminateStatus.PENDING
+                )
+                val completedRecord = repository.findByPayAccountIdAndTerminateStatus(
+                    payAccountId, TerminateStatus.COMPLETED
+                )
+
+                pendingRecord shouldNotBe null
+                completedRecord shouldNotBe null
+            }
+
+            it("pay_account_id가 다르면 동일한 terminate_status를 허용한다") {
+                val entity1 = PayTerminateUser(
+                    payAccountId = 12345L,
+                    terminateStatus = TerminateStatus.PENDING,
+                    reason = reason
+                )
+                repository.save(entity1)
+
+                val entity2 = PayTerminateUser(
+                    payAccountId = 67890L,
+                    terminateStatus = TerminateStatus.PENDING,
+                    reason = reason
+                )
+                val saved = repository.save(entity2)
+
+                saved.id shouldNotBe null
+                saved.payAccountId shouldBe 67890L
+                saved.terminateStatus shouldBe TerminateStatus.PENDING
+            }
         }
-    }
-
-    @Test
-    fun `should allow same pay_account_id with different terminate_status`() {
-        val payAccountId = 67890L
-        val reason = "ACCOUNT_DELETED"
-        
-        // PENDING status
-        val pendingEntity = PayTerminateUser(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.PENDING,
-            reason = reason
-        )
-        repository.save(pendingEntity)
-        
-        // COMPLETED status - should be allowed
-        val completedEntity = PayTerminateUser(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.COMPLETED,
-            reason = reason
-        )
-        
-        val saved = repository.save(completedEntity)
-        
-        assertNotNull(saved.id)
-        assertEquals(payAccountId, saved.payAccountId)
-        assertEquals(TerminateStatus.COMPLETED, saved.terminateStatus)
-        
-        // Verify both records exist
-        val pendingRecord = repository.findByPayAccountIdAndTerminateStatus(
-            payAccountId, TerminateStatus.PENDING
-        )
-        val completedRecord = repository.findByPayAccountIdAndTerminateStatus(
-            payAccountId, TerminateStatus.COMPLETED
-        )
-        
-        assertNotNull(pendingRecord)
-        assertNotNull(completedRecord)
-    }
-
-    @Test
-    fun `should allow different pay_account_id with same terminate_status`() {
-        val reason = "ACCOUNT_DELETED"
-        
-        val entity1 = PayTerminateUser(
-            payAccountId = 12345L,
-            terminateStatus = TerminateStatus.PENDING,
-            reason = reason
-        )
-        repository.save(entity1)
-        
-        val entity2 = PayTerminateUser(
-            payAccountId = 67890L,
-            terminateStatus = TerminateStatus.PENDING,
-            reason = reason
-        )
-        
-        val saved = repository.save(entity2)
-        
-        assertNotNull(saved.id)
-        assertEquals(67890L, saved.payAccountId)
-        assertEquals(TerminateStatus.PENDING, saved.terminateStatus)
     }
 }

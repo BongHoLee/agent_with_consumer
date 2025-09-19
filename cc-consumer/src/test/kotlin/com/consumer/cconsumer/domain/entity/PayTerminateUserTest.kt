@@ -1,62 +1,56 @@
 package com.consumer.cconsumer.domain.entity
 
-import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 
-class PayTerminateUserTest {
+class PayTerminateUserTest : DescribeSpec({
 
-    @Test
-    fun `PayTerminateUser should be created with required fields`() {
+    describe("PayTerminateUser 엔티티 생성 시") {
         val payAccountId = 67890L
         val reason = "ACCOUNT_DELETED"
-        
-        val entity = PayTerminateUser(
-            payAccountId = payAccountId,
-            reason = reason
-        )
-        
-        assertEquals(payAccountId, entity.payAccountId)
-        assertEquals(reason, entity.reason)
-        assertEquals(TerminateStatus.PENDING, entity.terminateStatus)
-        assertEquals(0L, entity.id) // default value before persistence
-        assertNotNull(entity.createdAt)
-        assertNotNull(entity.updatedAt)
-    }
 
-    @Test
-    fun `PayTerminateUser should be created with custom terminate status`() {
-        val payAccountId = 67890L
-        val reason = "ACCOUNT_DELETED"
-        
-        val entity = PayTerminateUser(
-            payAccountId = payAccountId,
-            terminateStatus = TerminateStatus.COMPLETED,
-            reason = reason
-        )
-        
-        assertEquals(payAccountId, entity.payAccountId)
-        assertEquals(reason, entity.reason)
-        assertEquals(TerminateStatus.COMPLETED, entity.terminateStatus)
-    }
+        it("필수 필드와 기본값으로 생성될 수 있다") {
+            val entity = PayTerminateUser(
+                payAccountId = payAccountId,
+                reason = reason
+            )
 
-    @Test
-    fun `PayTerminateUser should be created without reason`() {
-        val payAccountId = 67890L
-        
-        val entity = PayTerminateUser(
-            payAccountId = payAccountId
-        )
-        
-        assertEquals(payAccountId, entity.payAccountId)
-        assertEquals(null, entity.reason)
-        assertEquals(TerminateStatus.PENDING, entity.terminateStatus)
-    }
+            entity.payAccountId shouldBe payAccountId
+            entity.reason shouldBe reason
+            entity.terminateStatus shouldBe TerminateStatus.PENDING
+            entity.id shouldBe 0L // default value before persistence
+            entity.createdAt shouldNotBe null
+            entity.updatedAt shouldNotBe null
+        }
 
-    @Test
-    fun `PayTerminateUser should extend BaseEntity`() {
-        val entity = PayTerminateUser(payAccountId = 67890L)
-        
-        assert(entity is BaseEntity)
+        it("사용자 정의 파기 상태로 생성될 수 있다") {
+            val entity = PayTerminateUser(
+                payAccountId = payAccountId,
+                terminateStatus = TerminateStatus.COMPLETED,
+                reason = reason
+            )
+
+            entity.payAccountId shouldBe payAccountId
+            entity.reason shouldBe reason
+            entity.terminateStatus shouldBe TerminateStatus.COMPLETED
+        }
+
+        it("사유 없이 생성될 수 있다") {
+            val entity = PayTerminateUser(
+                payAccountId = payAccountId
+            )
+
+            entity.payAccountId shouldBe payAccountId
+            entity.reason shouldBe null
+            entity.terminateStatus shouldBe TerminateStatus.PENDING
+        }
+
+        it("BaseEntity를 상속한다") {
+            val entity = PayTerminateUser(payAccountId = payAccountId)
+
+            entity.shouldBeInstanceOf<BaseEntity>()
+        }
     }
-}
+})

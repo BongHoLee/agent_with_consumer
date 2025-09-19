@@ -375,11 +375,11 @@ com.consumer.cconsumer/
 - [x] 단위 테스트: 엔티티 기본 상태 및 상태 전환 확인 (`MydataTerminateUserTest`, `PayTerminateUserTest`)
 
 ### 📋 2단계: Phase 2 - 메시지 모델 (우선순위: 높음)
-- [ ] `ConsentMessage`, `ConsentData` 데이터 클래스 생성
-- [ ] Avro 스키마 파일 작성 (`PayAccountDeletedEnvelop.avsc`)
-- [ ] Avro Gradle Plugin 설정
-- [ ] 메시지 모델 단위 테스트
-- [ ] 테스트: JSON/Avro 메시지 역직렬화 검증
+- [x] `ConsentMessage`, `ConsentData` 데이터 클래스 생성
+- [x] Avro 스키마 파일 작성 (`PayAccountDeletedEnvelop.avsc`)
+- [x] Avro Gradle Plugin 설정
+- [x] 메시지 모델 단위 테스트 (`ConsentMessageTest`)
+- [x] 테스트: JSON/Avro 메시지 역직렬화 검증 (`ConsentMessageTest`, `PayAccountDeletedEnvelopAvroTest`)
 
 ### 📋 3단계: Phase 3 - Kafka Consumer (우선순위: 높음)
 - [ ] `MydataConsentConsumer` 구현

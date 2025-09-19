@@ -1,25 +1,25 @@
 package com.consumer.cconsumer.domain.entity
 
-import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
+import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.longs.shouldBeExactly
+import io.kotest.matchers.shouldNotBe
 
-class BaseEntityTest {
+class BaseEntityTest : DescribeSpec({
 
-    @Test
-    fun `BaseEntity should have default id value of 0`() {
-        val entity = MydataTerminateUser(payAccountId = 12345L)
-        
-        assertEquals(0L, entity.id)
-        assertNotNull(entity.createdAt)
-        assertNotNull(entity.updatedAt)
+    describe("BaseEntity 엔티티는") {
+        it("기본 id 값으로 0을 가지며, 생성/수정 시간은 초기화된다") {
+            val entity = MydataTerminateUser(payAccountId = 12345L)
+
+            entity.id shouldBeExactly 0L
+            entity.createdAt shouldNotBe null
+            entity.updatedAt shouldNotBe null
+        }
+
+        it("다른 엔티티 타입에 대해서도 생성/수정 시간은 초기화된다") {
+            val entity = PayTerminateUser(payAccountId = 67890L)
+
+            entity.createdAt shouldNotBe null
+            entity.updatedAt shouldNotBe null
+        }
     }
-
-    @Test
-    fun `BaseEntity should have timestamps initialized`() {
-        val entity = PayTerminateUser(payAccountId = 67890L)
-        
-        assertNotNull(entity.createdAt)
-        assertNotNull(entity.updatedAt)
-    }
-}
+})

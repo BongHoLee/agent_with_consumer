@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "PayAccountDeletedEnvelop",
+  "namespace": "com.codex.consumer.model.avro",
+  "fields": [
+    { "name": "uuid", "type": "string" },
+    { "name": "occurred_at", "type": "long" },
+    { "name": "payAccountId", "type": "long" },
+    { "name": "reason", "type": ["null", "string"], "default": null }
+  ]
+}
