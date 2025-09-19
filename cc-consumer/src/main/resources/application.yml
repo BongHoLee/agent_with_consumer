@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: cc-consumer
+  datasource:
+    url: jdbc:mysql://localhost:3306/consumer_db
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: cc-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: manual_immediate
+
+logging:
+  level:
+    com.consumer.cconsumer: DEBUG
+    org.springframework.kafka: DEBUG
